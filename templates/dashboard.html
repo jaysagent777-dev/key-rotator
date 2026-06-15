@@ -262,7 +262,7 @@
 
     async function loadVisitors() {
       try {
-        const res = await fetch('https://gesop-ai-production.up.railway.app/visitors');
+        const res = await fetch('/dashboard/gesop-visitors');
         _visitorData = await res.json();
         renderVisitors();
       } catch (e) {
