@@ -127,8 +127,7 @@ async def dashboard(request: Request):
         }
         for p, keys in stats.items()
     }
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "stats": stats,
         "providers": list(PROVIDERS.keys()),
         "total_keys": total_keys,
@@ -144,7 +143,7 @@ async def dashboard(request: Request):
 @app.get("/dashboard/keys-partial", response_class=HTMLResponse)
 async def keys_partial(request: Request):
     stats = get_stats()
-    return templates.TemplateResponse("keys_partial.html", {"request": request, "stats": stats})
+    return templates.TemplateResponse(request, "keys_partial.html", {"stats": stats})
 
 
 @app.post("/dashboard/add-key", response_class=HTMLResponse)
