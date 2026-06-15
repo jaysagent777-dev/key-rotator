@@ -137,7 +137,7 @@ async def dashboard(request: Request):
         "provider_count": len([p for p in PROVIDERS if stats.get(p)]),
         "port": PORT,
         "max_requests": max_requests,
-        "chart_data": chart_data,
+        "chart_data": json.dumps(chart_data),
     })
 
 
@@ -185,3 +185,4 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)
+
