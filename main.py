@@ -242,6 +242,17 @@ async def dashboard_delete_key(
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
+
+@app.get("/dashboard/gesop-visitors")
+async def gesop_visitors():
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get("https://gesop-ai-production.up.railway.app/visitors")
+            return JSONResponse(r.json())
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
+
 @app.get("/health")
 async def health():
     stats = get_stats()
