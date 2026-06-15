@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Key Rotator Dashboard</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12">  // Auto-load visitors on page open
-  loadVisitors();
+  <script src="https://unpkg.com/htmx.org@1.9.12">  // Auto-load visitors immediately
+  setTimeout(loadVisitors, 500);
 </script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">  // Auto-load visitors on page open
-  loadVisitors();
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">  // Auto-load visitors immediately
+  setTimeout(loadVisitors, 500);
 </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,11 +267,18 @@
     async function loadVisitors() {
       try {
         const res = await fetch('/dashboard/gesop-visitors');
-        _visitorData = await res.json();
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        _visitorData = data;
         renderVisitors();
       } catch (e) {
-        document.getElementById('visitors-tbody').innerHTML =
-          '<tr><td colspan="4" style="color:#f77;text-align:center;">Failed to load visitors.</td></tr>';
+        if (_visitorData.length) {
+          renderVisitors();
+        } else {
+          document.getElementById('visitors-tbody').innerHTML =
+            '<tr><td colspan="4" style="color:#f77;text-align:center;">Retrying...</td></tr>';
+          setTimeout(loadVisitors, 2000);
+        }
       }
     }
 
@@ -329,8 +336,8 @@
       new Chart(document.getElementById('chartReq'), opts('Requests', reqs, COLORS));
       new Chart(document.getElementById('chartErr'), opts('Errors', errs, COLORS.map((c,i) => i===3?'#f77a7a':c)));
     }
-    // Auto-load visitors on page open
-  loadVisitors();
+    // Auto-load visitors immediately
+  setTimeout(loadVisitors, 500);
 </script>
 </body>
 </html>
