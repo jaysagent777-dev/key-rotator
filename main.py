@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from key_manager import add_key, delete_key, pick_key, mark_error, get_stats, get_all_keys
+from key_manager import add_key, delete_key, pick_key, mark_error, get_stats, get_all_keys, _seed_if_empty
 from providers import PROVIDERS, MODEL_ALIASES
 
 load_dotenv()
@@ -29,6 +29,8 @@ templates = Jinja2Templates(directory="templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Seed keys from base64 bundle if empty
+    _seed_if_empty()
     # Seed keys from .env on startup
     for provider, cfg in PROVIDERS.items():
         env_val = os.getenv(cfg["env_key"], "")
