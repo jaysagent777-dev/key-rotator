@@ -1,0 +1,55 @@
+<div class="providers-grid">
+  {% for provider, keys in stats.items() %}
+  <div class="provider-card">
+    <div class="provider-header">
+      <span class="provider-name">{{ provider }}</span>
+      <span class="provider-count">{{ keys | length }} key{{ 's' if keys | length != 1 }}</span>
+    </div>
+    {% if keys %}
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Key</th>
+          <th>Reqs</th>
+          <th>Errs</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k in keys %}
+        <tr>
+          <td>{{ k.label }}</td>
+          <td style="font-family:monospace;font-size:0.78rem;color:#888">{{ k.key_masked }}</td>
+          <td>{{ k.requests }}</td>
+          <td>{{ k.errors }}</td>
+          <td>
+            {% if k.in_cooldown %}
+            <span class="badge cooldown">cooldown {{ k.cooldown_remaining }}s</span>
+            {% else %}
+            <span class="badge ok">active</span>
+            {% endif %}
+          </td>
+          <td>
+            <button class="danger"
+              hx-delete="/dashboard/delete-key"
+              hx-vals='{"provider": "{{ provider }}", "key": "{{ k.key }}"}'
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+              hx-confirm="Delete this key?">✕</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No keys yet. Add one above.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if not stats %}
+  <p class="empty" style="grid-column:1/-1;padding:1rem 0;">No keys added yet. Add your first key above to get started.</p>
+  {% endif %}
+</div>

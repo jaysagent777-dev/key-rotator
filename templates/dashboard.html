@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Key Rotator Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
+    header { background: #1a1a2e; padding: 1rem 2rem; border-bottom: 1px solid #2a2a4a; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: #7c6ff7; }
+    header span { font-size: 0.8rem; color: #888; }
+    nav { display: flex; gap: 0.5rem; margin-left: auto; }
+    nav button { background: transparent; border: 1px solid #2a2a4a; color: #aaa; padding: 0.35rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+    nav button.active, nav button:hover { background: #7c6ff7; color: #fff; border-color: #7c6ff7; }
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page { display: none; } .page.active { display: block; }
+    .section-title { font-size: 1rem; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    .card { background: #1c1c2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem; }
+    .add-form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+    .add-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: #aaa; }
+    .add-form input, .add-form select {
+      background: #12122a; border: 1px solid #333; color: #e0e0e0;
+      padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem; min-width: 180px;
+    }
+    .add-form input:focus, .add-form select:focus { outline: 2px solid #7c6ff7; border-color: transparent; }
+    button.primary { background: #7c6ff7; color: #fff; border: none; padding: 0.55rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    button.primary:hover { background: #6457e8; }
+    button.danger { background: transparent; color: #f77; border: 1px solid #f77; padding: 0.3rem 0.7rem; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
+    button.danger:hover { background: #f773; }
+    #msg { margin-top: 0.75rem; font-size: 0.88rem; color: #7cf79e; min-height: 1.2em; }
+    .providers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+    .provider-card { background: #1c1c2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 1.25rem; }
+    .provider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .provider-name { font-weight: 700; font-size: 1rem; color: #c4b8ff; }
+    .provider-count { font-size: 0.78rem; color: #888; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; color: #666; font-weight: 500; padding: 0.3rem 0.4rem; border-bottom: 1px solid #2a2a4a; }
+    td { padding: 0.4rem 0.4rem; border-bottom: 1px solid #1a1a2e; vertical-align: middle; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge.ok { background: #1a3a25; color: #5fc47a; }
+    .badge.cooldown { background: #3a1a1a; color: #f77a7a; }
+    .empty { color: #555; font-size: 0.85rem; padding: 0.5rem 0; }
+    .stats-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .stat-box { background: #1c1c2e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 1rem 1.5rem; min-width: 140px; flex: 1; }
+    .stat-box .num { font-size: 1.8rem; font-weight: 700; color: #7c6ff7; }
+    .stat-box .lbl { font-size: 0.78rem; color: #888; margin-top: 0.2rem; }
+    .refresh-btn { background: transparent; color: #888; border: 1px solid #333; padding: 0.35rem 0.75rem; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
+    .refresh-btn:hover { color: #bbb; border-color: #555; }
+    .endpoint-box { background: #12122a; border: 1px solid #2a2a4a; border-radius: 6px; padding: 0.75rem 1rem; font-family: monospace; font-size: 0.85rem; color: #a0d8ff; margin-top: 0.5rem; }
+    code { background: #12122a; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.82rem; color: #c9d1d9; }
+
+    /* Usage page */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card { background: #1c1c2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 1.25rem; }
+    .chart-card h3 { font-size: 0.85rem; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 1rem; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* Per-key usage bars */
+    .usage-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .usage-table th { text-align: left; color: #666; font-weight: 500; padding: 0.4rem 0.6rem; border-bottom: 1px solid #2a2a4a; }
+    .usage-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #1a1a2e; vertical-align: middle; }
+    .bar-wrap { background: #12122a; border-radius: 4px; height: 8px; width: 100%; min-width: 80px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+    .bar-req { background: #7c6ff7; }
+    .bar-err { background: #f77a7a; }
+    .pct-label { font-size: 0.75rem; color: #666; margin-top: 2px; }
+    .provider-pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.72rem; font-weight: 600; background: #1a1a3a; color: #c4b8ff; border: 1px solid #3a3a6a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ Key Rotator</h1>
+    <span>Free API Key Aggregator &amp; Proxy</span>
+    <nav>
+      <button class="active" onclick="showPage('overview', this)">Overview</button>
+      <button onclick="showPage('usage', this)">Usage</button>
+      <button onclick="showPage('keys', this)">Keys</button>
+    </nav>
+  </header>
+
+  <div class="container">
+
+    <!-- ── OVERVIEW PAGE ─────────────────────────────────── -->
+    <div id="page-overview" class="page active">
+
+      <div class="stats-row">
+        <div class="stat-box"><div class="num">{{ total_keys }}</div><div class="lbl">Total Keys</div></div>
+        <div class="stat-box"><div class="num">{{ total_requests }}</div><div class="lbl">Requests Routed</div></div>
+        <div class="stat-box"><div class="num">{{ total_errors }}</div><div class="lbl">Rate-Limit Errors</div></div>
+        <div class="stat-box"><div class="num">{{ provider_count }}</div><div class="lbl">Active Providers</div></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Your Unified Endpoint</div>
+        <div class="endpoint-box">http://localhost:{{ port }}/v1</div>
+        <p style="margin-top:0.75rem; font-size:0.85rem; color:#888;">
+          Drop this as your <code>base_url</code> in any OpenAI-compatible client.
+          Set <code>api_key</code> to any non-empty string (e.g. <code>rotator</code>).
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Add a Key</div>
+        <form class="add-form"
+              hx-post="/dashboard/add-key"
+              hx-target="#msg"
+              hx-swap="innerHTML"
+              hx-on::after-request="this.reset(); setTimeout(() => htmx.trigger('#keys-section', 'refresh'), 400)">
+          <label>Provider
+            <select name="provider" required>
+              {% for p in providers %}
+              <option value="{{ p }}">{{ p }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>API Key
+            <input type="text" name="key" placeholder="sk-..." required style="min-width:280px"/>
+          </label>
+          <label>Label (optional)
+            <input type="text" name="label" placeholder="my-gemini-1"/>
+          </label>
+          <button type="submit" class="primary">Add Key</button>
+        </form>
+        <div id="msg"></div>
+      </div>
+
+    </div>
+
+    <!-- ── USAGE PAGE ────────────────────────────────────── -->
+    <div id="page-usage" class="page">
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Requests by Provider</h3>
+          <div class="chart-wrap"><canvas id="chartReq"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Errors by Provider</h3>
+          <div class="chart-wrap"><canvas id="chartErr"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Per-Key Breakdown</span>
+          <button class="refresh-btn" onclick="loadUsage()">Refresh</button>
+        </div>
+        <table class="usage-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Provider</th>
+              <th>Key</th>
+              <th>Requests</th>
+              <th>Errors</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="usage-tbody">
+            {% for provider, keys in stats.items() %}
+            {% for k in keys %}
+            <tr>
+              <td>{{ k.label }}</td>
+              <td><span class="provider-pill">{{ provider }}</span></td>
+              <td style="font-family:monospace;font-size:0.78rem;color:#888">{{ k.key_masked }}</td>
+              <td>
+                <div class="bar-wrap"><div class="bar-fill bar-req" style="width:{{ [(k.requests / max_requests * 100) if max_requests > 0 else 0, 100]|min|int }}%"></div></div>
+                <div class="pct-label">{{ k.requests }} req</div>
+              </td>
+              <td>
+                <div class="bar-wrap"><div class="bar-fill bar-err" style="width:{{ [(k.errors / max_requests * 100) if max_requests > 0 else 0, 100]|min|int }}%"></div></div>
+                <div class="pct-label">{{ k.errors }} err</div>
+              </td>
+              <td>
+                {% if k.in_cooldown %}
+                <span class="badge cooldown">cooldown {{ k.cooldown_remaining }}s</span>
+                {% else %}
+                <span class="badge ok">active</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ── KEYS PAGE ─────────────────────────────────────── -->
+    <div id="page-keys" class="page">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <span>Keys by Provider</span>
+        <button class="refresh-btn" hx-get="/dashboard/keys-partial" hx-target="#keys-section" hx-swap="innerHTML">Refresh</button>
+      </div>
+      <div id="keys-section"
+           hx-get="/dashboard/keys-partial"
+           hx-trigger="load, refresh"
+           hx-swap="innerHTML">
+        Loading...
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Page nav ──
+    function showPage(name, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      btn.classList.add('active');
+      if (name === 'usage') initCharts();
+    }
+
+    // ── Charts ──
+    const COLORS = ['#7c6ff7','#5fc47a','#f7c948','#f77a7a','#4ac8f7','#f7a84a'];
+    let chartsInited = false;
+
+    function initCharts() {
+      if (chartsInited) return;
+      chartsInited = true;
+
+      const stats = {{ chart_data | tojson }};
+      const labels = Object.keys(stats);
+      const reqs = labels.map(p => stats[p].requests);
+      const errs = labels.map(p => stats[p].errors);
+
+      const opts = (label, data, colors) => ({
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#aaa', font: { size: 11 }, padding: 12 } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+          }
+        }
+      });
+
+      new Chart(document.getElementById('chartReq'), opts('Requests', reqs, COLORS));
+      new Chart(document.getElementById('chartErr'), opts('Errors', errs, COLORS.map((c,i) => i===3?'#f77a7a':c)));
+    }
+  </script>
+</body>
+</html>
