@@ -79,6 +79,7 @@
       <button class="active" onclick="showPage('overview', this)">Overview</button>
       <button onclick="showPage('usage', this)">Usage</button>
       <button onclick="showPage('keys', this)">Keys</button>
+      <button onclick="showPage('visitors', this)">Visitors</button>
     </nav>
   </header>
 
@@ -191,6 +192,32 @@
 
     </div>
 
+    <!-- ── VISITORS PAGE ───────────────────────────────────── -->
+    <div id="page-visitors" class="page">
+      <div class="card">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Visitor Log</span>
+          <button class="refresh-btn" onclick="loadVisitors()">Refresh</button>
+        </div>
+        <input id="visitor-filter" type="text" placeholder="Filter by IP or endpoint..."
+          style="background:#12122a;border:1px solid #333;color:#e0e0e0;border-radius:6px;padding:0.5rem 0.75rem;font-size:0.88rem;width:100%;margin-bottom:1rem;"
+          oninput="renderVisitors(this.value)" />
+        <table class="usage-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>IP</th>
+              <th>Method</th>
+              <th>Endpoint</th>
+            </tr>
+          </thead>
+          <tbody id="visitors-tbody">
+            <tr><td colspan="4" style="color:#555;text-align:center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── KEYS PAGE ─────────────────────────────────────── -->
     <div id="page-keys" class="page">
       <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
@@ -215,6 +242,40 @@
       document.getElementById('page-' + name).classList.add('active');
       btn.classList.add('active');
       if (name === 'usage') initCharts();
+      if (name === 'visitors') loadVisitors();
+    }
+
+    // ── Visitors ──
+    let _visitorData = [];
+
+    async function loadVisitors() {
+      try {
+        const res = await fetch('/dashboard/visitors');
+        _visitorData = await res.json();
+        renderVisitors(document.getElementById('visitor-filter').value);
+      } catch (e) {
+        document.getElementById('visitors-tbody').innerHTML =
+          '<tr><td colspan="4" style="color:#f77;text-align:center;">Failed to load visitors.</td></tr>';
+      }
+    }
+
+    function renderVisitors(filter) {
+      const f = (filter || '').toLowerCase();
+      const rows = _visitorData.filter(v =>
+        !f || v.ip.toLowerCase().includes(f) || v.path.toLowerCase().includes(f)
+      );
+      const tbody = document.getElementById('visitors-tbody');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:#555;text-align:center;">No entries.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(v => `
+        <tr>
+          <td style="font-size:0.78rem;color:#888;white-space:nowrap">${v.timestamp}</td>
+          <td style="font-family:monospace;font-size:0.82rem">${v.ip}</td>
+          <td><span class="badge ok">${v.method}</span></td>
+          <td style="font-family:monospace;font-size:0.82rem;color:#a0d8ff">${v.path}</td>
+        </tr>`).join('');
     }
 
     // ── Charts ──
