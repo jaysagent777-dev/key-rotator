@@ -4,8 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Key Rotator Dashboard</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12">  // Auto-load visitors on page open
+  loadVisitors();
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">  // Auto-load visitors on page open
+  loadVisitors();
+</script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
@@ -325,6 +329,8 @@
       new Chart(document.getElementById('chartReq'), opts('Requests', reqs, COLORS));
       new Chart(document.getElementById('chartErr'), opts('Errors', errs, COLORS.map((c,i) => i===3?'#f77a7a':c)));
     }
-  </script>
+    // Auto-load visitors on page open
+  loadVisitors();
+</script>
 </body>
 </html>
