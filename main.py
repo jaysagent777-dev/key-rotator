@@ -1,6 +1,8 @@
 import os
 import time
 import json
+import threading
+import requests as _requests
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -20,6 +22,7 @@ litellm.set_verbose = False
 PORT = int(os.getenv("PORT", 7860))
 
 visitor_log = deque(maxlen=500)
+_geo_cache = {}
 
 templates = Jinja2Templates(directory="templates")
 
@@ -38,21 +41,56 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Key Rotator", lifespan=lifespan)
 
 
+# ─── Geo lookup ───────────────────────────────────────────────────────────────
+
+def _get_country(ip: str) -> str:
+    if ip in _geo_cache:
+        return _geo_cache[ip]
+    try:
+        r = _requests.get(
+            f"http://ip-api.com/json/{ip}?fields=country,countryCode",
+            timeout=3,
+        )
+        data = r.json()
+        result = f"{data.get('country', '?')} {data.get('countryCode', '?')}"
+    except Exception:
+        result = "?"
+    _geo_cache[ip] = result
+    return result
+
+
 # ─── Visitor logging middleware ───────────────────────────────────────────────
+
+SKIP_PATHS = {
+    "/health",
+    "/dashboard/visitors",
+    "/dashboard/keys-partial",
+    "/v1/chat/completions",
+    "/v1/models",
+}
 
 @app.middleware("http")
 async def log_visitors(request: Request, call_next):
     path = request.url.path
-    if path not in ("/health", "/dashboard/keys-partial"):
-        ip = request.client.host if request.client else None
-        if not ip or ip in ("", "unknown"):
-            ip = request.headers.get("X-Forwarded-For", "unknown").split(",")[0].strip()
-        visitor_log.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+    if path not in SKIP_PATHS:
+        xff = request.headers.get("X-Forwarded-For", "")
+        ip = xff.split(",")[0].strip() if xff else (
+            request.client.host if request.client else "unknown"
+        )
+        entry = {
+            "time": datetime.now(timezone.utc).isoformat(),
             "ip": ip,
-            "method": request.method,
+            "country": "…",
             "path": path,
-        })
+        }
+        visitor_log.append(entry)
+
+        def _fetch_geo():
+            country = _get_country(ip)
+            entry["country"] = country
+
+        threading.Thread(target=_fetch_geo, daemon=True).start()
+
     return await call_next(request)
 
 
@@ -164,7 +202,13 @@ async def dashboard(request: Request):
 
 @app.get("/dashboard/visitors")
 async def dashboard_visitors():
-    return JSONResponse(list(reversed(list(visitor_log))))
+    entries = list(reversed(list(visitor_log)))
+    for e in entries:
+        if e.get("country") == "…":
+            cached = _geo_cache.get(e["ip"])
+            if cached:
+                e["country"] = cached
+    return JSONResponse(entries)
 
 
 @app.get("/dashboard/keys-partial", response_class=HTMLResponse)
@@ -211,4 +255,3 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)
-
