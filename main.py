@@ -1,7 +1,9 @@
 import os
 import time
 import json
+from collections import deque
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import litellm
 from dotenv import load_dotenv
@@ -16,6 +18,8 @@ load_dotenv()
 litellm.set_verbose = False
 
 PORT = int(os.getenv("PORT", 7860))
+
+visitor_log = deque(maxlen=500)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -32,6 +36,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Key Rotator", lifespan=lifespan)
+
+
+# ─── Visitor logging middleware ───────────────────────────────────────────────
+
+@app.middleware("http")
+async def log_visitors(request: Request, call_next):
+    path = request.url.path
+    if path not in ("/health", "/dashboard/keys-partial"):
+        ip = request.client.host if request.client else None
+        if not ip or ip in ("", "unknown"):
+            ip = request.headers.get("X-Forwarded-For", "unknown").split(",")[0].strip()
+        visitor_log.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ip": ip,
+            "method": request.method,
+            "path": path,
+        })
+    return await call_next(request)
 
 
 # ─── OpenAI-compatible proxy ─────────────────────────────────────────────────
@@ -138,6 +160,11 @@ async def dashboard(request: Request):
         "max_requests": max_requests,
         "chart_data": json.dumps(chart_data),
     })
+
+
+@app.get("/dashboard/visitors")
+async def dashboard_visitors():
+    return JSONResponse(list(reversed(list(visitor_log))))
 
 
 @app.get("/dashboard/keys-partial", response_class=HTMLResponse)
